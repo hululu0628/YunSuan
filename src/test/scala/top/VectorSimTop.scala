@@ -7,6 +7,7 @@ import chisel3.util._
 import yunsuan.util._
 import yunsuan.vector.VectorConvert.VectorCvt
 import yunsuan.vector._
+import yunsuan.vector.alu._
 import yunsuan.scalar.INT2FP
 import yunsuan.scalar.FPCVT
 
@@ -21,6 +22,7 @@ trait VSPParameter {
   val VPERM_latency: Int = 1
   val VID_latency: Int = 99
   val VCVT_latency: Int = 2 // ??
+  val VRED_latency: Int = 1
 }
 
 object VPUTestFuType { // only use in test, difftest with xs
@@ -34,9 +36,10 @@ object VPUTestFuType { // only use in test, difftest with xs
   def vcvt= "b0000_0111".U(8.W)
   def fcvtf2x= "b0000_1000".U(8.W)
   def fcvti2f= "b0000_1001".U(8.W)
+  def vred = "b0000_1010".U(8.W)
 
   def unknown(typ: UInt) = {
-    (typ > 9.U)
+    (typ > 10.U)
   }
 }
 
@@ -62,6 +65,7 @@ class VSTInputIO extends VPUTestBundle {
 
   val src_widen = Bool()
   val widen = Bool()
+  val is_signed = Bool()
   val is_frs1 = Bool()
   val is_frs2 = Bool()
 
@@ -111,7 +115,8 @@ class SimTop() extends VPUTestModule {
       VPUTestFuType.vid -> VID_latency.U,
       VPUTestFuType.vcvt -> VCVT_latency.U,
       VPUTestFuType.fcvtf2x -> VCVT_latency.U,
-      VPUTestFuType.fcvti2f -> VCVT_latency.U
+      VPUTestFuType.fcvti2f -> VCVT_latency.U,
+      VPUTestFuType.vred -> VRED_latency.U,
     )) // fuType --> latency, spec case for div
     assert(!VPUTestFuType.unknown(io.in.bits.fuType))
   }
@@ -123,9 +128,9 @@ class SimTop() extends VPUTestModule {
   val finish_uncertain = Wire(Bool())
   val is_uncertain = (in.fuType === VPUTestFuType.vfd) || (in.fuType === VPUTestFuType.vid)
 
-  val (sew, uop_idx, rm, rm_s, fuType, opcode, src_widen, widen, is_frs1, is_frs2) = (
+  val (sew, uop_idx, rm, rm_s, fuType, opcode, src_widen, widen, is_signed, is_frs1, is_frs2) = (
     in.sew, in.uop_idx, in.rm, in.rm_s, in.fuType, in.fuOpType,
-    in.src_widen, in.widen, in.is_frs1, in.is_frs2
+    in.src_widen, in.widen, in.is_signed, in.is_frs1, in.is_frs2
   )
 
   val (vstart, vl, vlmul, vm, ta, ma) = (
@@ -144,6 +149,7 @@ class SimTop() extends VPUTestModule {
   val vcvt_result = Wire(new VSTOutputIO)
   val i2f_result = Wire(new VSTOutputIO)
   val fpcvt_result = Wire(new VSTOutputIO)
+  val vred_result = Wire(new VSTOutputIO)
   when (io.in.fire || io.out.fire) {
     vfd_result_valid.map(_ := false.B)
   }
@@ -306,6 +312,31 @@ class SimTop() extends VPUTestModule {
     fpcvt_result.fflags(i) := fpcvt.io.fflags
   }
 
+  // Named vialu, but only test vreduction in this version
+  val vialu = Module(new VIAlu)
+  vialu.io.in.valid := fuType === VPUTestFuType.vred
+  vialu.io.in.bits.opcode := opcode(5,0).asTypeOf(new VAluOpcode)
+  vialu.io.in.bits.info.vm := vm
+  vialu.io.in.bits.info.ma := ma
+  vialu.io.in.bits.info.ta := ta
+  vialu.io.in.bits.info.vlmul := vlmul
+  vialu.io.in.bits.info.vl := vl
+  vialu.io.in.bits.info.vstart := vstart
+  vialu.io.in.bits.info.uopIdx := uop_idx
+  vialu.io.in.bits.info.vxrm := rm(2,1)
+  vialu.io.in.bits.srcType(0) := Cat(0.U(1.W), is_signed, sew)
+  vialu.io.in.bits.srcType(1) := Cat(0.U(1.W), is_signed, sew)
+  vialu.io.in.bits.vdType := Cat(0.U(1.W), is_signed, sew + widen)
+  vialu.io.in.bits.vs1 := Cat(in.src(0)(1), in.src(0)(0))
+  vialu.io.in.bits.vs2 := Cat(in.src(1)(1), in.src(1)(0))
+  vialu.io.in.bits.old_vd := Cat(in.src(2)(1), in.src(2)(0))
+  vialu.io.in.bits.mask := Cat(in.src(3)(1), in.src(3)(0))
+  vred_result.result(0) := vialu.io.out.bits.vd(XLEN-1, 0)
+  vred_result.result(1) := vialu.io.out.bits.vd(VLEN-1, XLEN)
+  vred_result.fflags(0) := 0.U
+  vred_result.fflags(1) := 0.U
+  vred_result.vxsat     := vialu.io.out.bits.vxsat
+
   val vperm = Module(new VPermTop)
   vperm.io.vs1 := Cat(in.src(0)(1), in.src(0)(0))
   vperm.io.vs2 := Cat(in.src(1)(1), in.src(1)(0))
@@ -392,7 +423,8 @@ class SimTop() extends VPUTestModule {
     VPUTestFuType.vid -> vid_result,
     VPUTestFuType.vcvt -> vcvt_result,
     VPUTestFuType.fcvtf2x -> fpcvt_result,
-    VPUTestFuType.fcvti2f -> i2f_result
+    VPUTestFuType.fcvti2f -> i2f_result,
+    VPUTestFuType.vred -> vred_result,
   ))
 }
 
