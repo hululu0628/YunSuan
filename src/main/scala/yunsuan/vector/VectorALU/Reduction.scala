@@ -613,7 +613,10 @@ class Reduction extends Module {
   val sum_vd = Wire(UInt(64.W))
   val max_vd = Wire(UInt(64.W))
   // stage 1
-  val logical_vd = Mux(alu_uop_reg_s1, vd_logical_alu, Cat(0.U((VLEN - 64).W), vd_logical(~vdType_reg_s1(1, 0))))
+  val vdType_reg_s1_rev = Wire(UInt(2.W))
+  vdType_reg_s1_rev := (~vdType_reg_s1)(1, 0)
+  dontTouch(vdType_reg_s1_rev) // genarate code that can pass verilator check
+  val logical_vd = Mux(alu_uop_reg_s1, vd_logical_alu, Cat(0.U((VLEN - 64).W), vd_logical(vdType_reg_s1_rev)))
   val red_vd = Wire(UInt(VLEN.W))
   // stage 2
   sum_vd := vd_sew64
