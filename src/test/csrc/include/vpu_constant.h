@@ -13,7 +13,6 @@ extern "C"{
 #define VLEN 128
 #define XLEN 64
 
-// #define FU_NUM 8 // for random
 #define VFloatAdder (0)
 #define VFloatFMA   (1)
 #define VFloatDivider (2)
@@ -24,11 +23,9 @@ extern "C"{
 #define VFloatCvt (7)
 #define FloatCvtF2X (8) //f->i/ui/f
 #define FloatCvtI2F (9) //i/ui->f
-// #define ALL_FUTYPES {VFloatAdder,VFloatFMA,VFloatDivider,VIntegerALU,VPermutation,VIntegerALUV2,VIntegerDivider,VFloatCvt}
+#define VReduction (10)
 
-//will be delated
-#define FU_NUM 8 
-#define ALL_FUTYPES {VFloatFMA,VFloatDivider,VIntegerALU,VPermutation,VIntegerDivider,VFloatCvt,FloatCvtF2X,FloatCvtI2F}
+#define ALL_FUTYPES {VFloatFMA,VFloatDivider,VIntegerALU,VPermutation,VIntegerDivider,VFloatCvt,FloatCvtF2X,FloatCvtI2F, VReduction}
 
 #define INT_ROUNDING(result, xrm, gb) \
   do { \
@@ -185,6 +182,18 @@ extern "C"{
 #define VWREGMOV    (binstoi("0111"))
 
 #define VPERM_ALL_OPTYPES {VSLIDEUP,VSLIDEDOWN,VSLIDE1UP,VSLIDE1DOWN,VRGATHER,VRGATHERRS1,VCOMPRESS}
+
+// vred funop type
+#define VRED_NUM 6
+#define VREDSUM (binstoi("100001"))
+#define VREDMAX (binstoi("100010"))
+#define VREDMIN (binstoi("100011"))
+#define VREDAND (binstoi("100100"))
+#define VREDOR  (binstoi("100101"))
+#define VREDXOR (binstoi("100110"))
+
+#define VRED_ALL_OPTYPES {VREDSUM,VREDMAX,VREDMIN,VREDAND,VREDOR,VREDXOR}
+
 
 // rounding mode for fix point
 #define RM_S_RNU (0)

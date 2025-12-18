@@ -120,6 +120,11 @@ uint8_t TestDriver::gen_random_optype() {
         return i2fcvt_64_optype[rand() % I2FCVT_64_NUM];
         break;
     }
+    case VReduction:{
+      uint8_t vred_all_optype[VRED_NUM] = VRED_ALL_OPTYPES;
+      return vred_all_optype[rand() % VRED_NUM];
+      break;
+    }
     default:
       printf("Unsupported FuType %d\n", input.fuType);
       exit(1);
@@ -136,6 +141,7 @@ uint8_t TestDriver::gen_random_sew() {
     case VFloatCvt: return rand()%4; break;
     case FloatCvtF2X: return (rand()%3)+1 ; break;
     case FloatCvtI2F: return 0 ; break;
+    case VReduction: return rand()%4; break;
     default: return (rand()%3)+1; break;
   }
 }
@@ -158,7 +164,13 @@ bool TestDriver::gen_random_widen() {
       default: return false; break;
     }
   }
-  else return false;
+  if(input.sew == 3 && input.fuType == VReduction && input.fuOpType == VREDSUM) {
+    return false;
+  }
+  else {
+    return rand()%2;
+  }
+  return false;
 }
 
 bool TestDriver::gen_random_src_widen() {
@@ -170,6 +182,10 @@ bool TestDriver::gen_random_src_widen() {
     }
   }
   else return false;
+}
+
+bool TestDriver::gen_random_signed() {
+  return rand()%2 == 1;
 }
 
 bool TestDriver::gen_random_is_frs1() {
@@ -211,7 +227,15 @@ void TestDriver::gen_random_vecinfo() {
   //               lmul =  8, 4, 2, 1,  1/2, 1/4, 1/8
   uint8_t vlmul_list[7] = {3, 2, 1, 0,  7,   6,   5};
 
-  input.vinfo.vlmul = vlmul_list[rand() % (7 - input.sew)];
+  switch (input.fuType) {
+    case VReduction: {
+      input.vinfo.vlmul = 0;
+      break;
+    }
+    default:
+      input.vinfo.vlmul = vlmul_list[rand() % (7 - input.sew)];
+      break;
+  }
   int elements_per_reg = (VLEN / 8) >> input.sew;
   int vlmax = (input.vinfo.vlmul > 4) ? (elements_per_reg >> (8 - input.vinfo.vlmul)) : (elements_per_reg << input.vinfo.vlmul);
   switch (input.fuType) {
@@ -401,6 +425,7 @@ void TestDriver::get_random_input() {
     input.sew = gen_random_sew();
     input.widen = gen_random_widen();
     input.src_widen = gen_random_src_widen();
+    input.is_signed = gen_random_signed();
     input.is_frs1 = false;
     input.is_frs2 = false;
     gen_random_vecinfo();
@@ -464,6 +489,9 @@ void TestDriver::get_expected_output() {
     case FloatCvtI2F:
       if (verbose) { printf("FuType:%d, choose FloatCvtI2F %d\n", input.fuType, FloatCvtI2F); }
       expect_output = scvt.get_expected_output(input); return; 
+    case VReduction;
+      if (verbose) { printf("FuType:%d, choose VReduction %d\n", input.fuType, VReduction); }
+      expect_output = vired.get_expected_output(input); return; 
     default:
       printf("Unsupported FuType %d\n", input.fuType);
       exit(1);

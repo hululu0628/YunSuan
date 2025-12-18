@@ -44,6 +44,7 @@ private:
   VGMIntegerDividier vid;
   VGMFloatCvt vcvt;
   SGMFloatCvt scvt;
+  VGMReduction vired;
 
 public:
   TestDriver();
@@ -58,6 +59,7 @@ public:
   uint8_t gen_random_sew();
   bool gen_random_widen();
   bool gen_random_src_widen();
+  bool gen_random_signed();
   bool gen_random_is_frs1();
   bool gen_random_is_frs2();
   void gen_random_vecinfo();

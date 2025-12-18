@@ -11,16 +11,17 @@ struct VecInfo {
 };
 
 struct VecInput {
-  uint64_t src1[2];
-  uint64_t src2[2];
-  uint64_t src3[2];
-  uint64_t src4[2];
+  uint64_t src1[2]; // vs1
+  uint64_t src2[2]; // vs2
+  uint64_t src3[2]; // vd
+  uint64_t src4[2]; // v0, mask
   uint8_t fuType; // only 5bits(or 2bits?)
   uint8_t fuOpType;
   uint8_t uop_idx; // only 6 bits
   uint8_t sew; // only 2 bits
   bool src_widen;
   bool widen;
+  bool is_signed;
   bool is_frs1; // vector-scalar vs2, f[rs1]
   bool is_frs2; // scalar-vector f[rs2], vs1
   uint8_t rm; // only 3 bits

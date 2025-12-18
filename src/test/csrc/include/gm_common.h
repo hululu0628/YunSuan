@@ -150,5 +150,21 @@ class VGMIntegerDividier : public VPUGoldenModel{
   virtual ElementOutput calculation_e64(ElementInput input); 
 };
 
+class VGMReduction : public VPUGoldenModel {
+  public:
+    VecOutput get_expected_output(VecInput input);
+    virtual ElementOutput calculation_e8(ElementInput input);
+    virtual ElementOutput calculation_e16(ElementInput input);
+    virtual ElementOutput calculation_e32(ElementInput input);
+    virtual ElementOutput calculation_e64(ElementInput input);
+  private:
+    VecOutput get_output_vred(VecInput input);
+    VecOutput get_output_vredsum(VecInput input);
+    VecOutput get_output_vredmax(VecInput input);
+    VecOutput get_output_vredmin(VecInput input);
+    VecOutput get_output_vredand(VecInput input);
+    VecOutput get_output_vredor(VecInput input);
+    VecOutput get_output_vredxor(VecInput input);
+};
 
 #endif
