@@ -24,7 +24,7 @@ VecOutput VGMReduction::get_output_vredsum(VecInput input) {
     int is_signed = input.is_signed;
 
     // wrap later
-    int lmul = input.vinfo.vlmul; // lmul always equals 1 for vector reduction
+    // int lmul = input.vinfo.vlmul; // lmul always equals 1 for vector reduction
     int sew = input.sew;
     int one[2] = {-1, -1};
     __uint128_t bodyMask =  (*(__uint128_t *)one >> input.vinfo.vstart << input.vinfo.vstart) 
@@ -115,7 +115,7 @@ VecOutput VGMReduction::get_output_vredmax(VecInput input) {
     int is_signed = input.is_signed;
 
     // wrap later
-    int lmul = input.vinfo.vlmul; // lmul always equals 1 for vector reduction
+    // int lmul = input.vinfo.vlmul; // lmul always equals 1 for vector reduction
     int sew = input.sew;
     int one[2] = {-1, -1};
     __uint128_t bodyMask =  (*(__uint128_t *)one >> input.vinfo.vstart << input.vinfo.vstart) 
@@ -209,7 +209,7 @@ VecOutput VGMReduction::get_output_vredmin(VecInput input) {
     int is_signed = input.is_signed;
 
     // wrap later
-    int lmul = input.vinfo.vlmul; // lmul always equals 1 for vector reduction
+    // int lmul = input.vinfo.vlmul; // lmul always equals 1 for vector reduction
     int sew = input.sew;
     int one[2] = {-1, -1};
     __uint128_t bodyMask =  (*(__uint128_t *)one >> input.vinfo.vstart << input.vinfo.vstart) 
@@ -298,12 +298,12 @@ VecOutput VGMReduction::get_output_vredmin(VecInput input) {
     return output;
 }
 
-Vecoutput VGMReduction::get_output_vredand(VecInput input) {
+VecOutput VGMReduction::get_output_vredand(VecInput input) {
     int widen = 0;
     int is_signed = 0;
 
     // wrap later
-    int lmul = input.vinfo.vlmul; // lmul always equals 1 for vector reduction
+    // int lmul = input.vinfo.vlmul; // lmul always equals 1 for vector reduction
     int sew = input.sew;
     int one[2] = {-1, -1};
     __uint128_t bodyMask =  (*(__uint128_t *)one >> input.vinfo.vstart << input.vinfo.vstart) 
@@ -389,12 +389,12 @@ Vecoutput VGMReduction::get_output_vredand(VecInput input) {
     return output;
 }
 
-Vecoutput VGMReduction::get_output_vredor(VecInput input) {
+VecOutput VGMReduction::get_output_vredor(VecInput input) {
     int widen = 0;
     int is_signed = 0;
 
     // wrap later
-    int lmul = input.vinfo.vlmul; // lmul always equals 1 for vector reduction
+    // int lmul = input.vinfo.vlmul; // lmul always equals 1 for vector reduction
     int sew = input.sew;
     int one[2] = {-1, -1};
     __uint128_t bodyMask =  (*(__uint128_t *)one >> input.vinfo.vstart << input.vinfo.vstart) 
@@ -480,12 +480,12 @@ Vecoutput VGMReduction::get_output_vredor(VecInput input) {
     return output;
 }
 
-Vecoutput VGMReduction::get_output_vredand(VecInput input) {
+VecOutput VGMReduction::get_output_vredxor(VecInput input) {
     int widen = 0;
     int is_signed = 0;
 
     // wrap later
-    int lmul = input.vinfo.vlmul; // lmul always equals 1 for vector reduction
+    // int lmul = input.vinfo.vlmul; // lmul always equals 1 for vector reduction
     int sew = input.sew;
     int one[2] = {-1, -1};
     __uint128_t bodyMask =  (*(__uint128_t *)one >> input.vinfo.vstart << input.vinfo.vstart) 
@@ -571,7 +571,7 @@ Vecoutput VGMReduction::get_output_vredand(VecInput input) {
     return output;
 }
 
-ElementOutput VGMIntegerALUF::calculation_e8(ElementInput  input) {ElementOutput rs; return rs;}
-ElementOutput VGMIntegerALUF::calculation_e16(ElementInput input) {ElementOutput rs; return rs;}
-ElementOutput VGMIntegerALUF::calculation_e32(ElementInput input) {ElementOutput rs; return rs;}
-ElementOutput VGMIntegerALUF::calculation_e64(ElementInput input) {ElementOutput rs; return rs;}
+ElementOutput VGMReduction::calculation_e8(ElementInput  input) {ElementOutput rs; return rs;}
+ElementOutput VGMReduction::calculation_e16(ElementInput input) {ElementOutput rs; return rs;}
+ElementOutput VGMReduction::calculation_e32(ElementInput input) {ElementOutput rs; return rs;}
+ElementOutput VGMReduction::calculation_e64(ElementInput input) {ElementOutput rs; return rs;}

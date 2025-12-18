@@ -29,8 +29,8 @@ void TestDriver::set_default_value(VSimTop *dut_ptr) {
 void TestDriver::set_test_type() {
   test_type.pick_fuType = false;
   test_type.pick_fuOpType = false;
-  test_type.fuType = VFloatCvt;
-  test_type.fuOpType = VFREC7;
+  test_type.fuType = VReduction;
+  test_type.fuOpType = VREDAND;
   printf("Set Test Type Res: fuType:%d fuOpType:%d\n", test_type.fuType, test_type.fuOpType);
 }
 
@@ -164,10 +164,7 @@ bool TestDriver::gen_random_widen() {
       default: return false; break;
     }
   }
-  if(input.sew == 3 && input.fuType == VReduction && input.fuOpType == VREDSUM) {
-    return false;
-  }
-  else {
+  if(input.sew < 3 && input.fuType == VReduction && input.fuOpType == VREDSUM) {
     return rand()%2;
   }
   return false;
@@ -489,7 +486,7 @@ void TestDriver::get_expected_output() {
     case FloatCvtI2F:
       if (verbose) { printf("FuType:%d, choose FloatCvtI2F %d\n", input.fuType, FloatCvtI2F); }
       expect_output = scvt.get_expected_output(input); return; 
-    case VReduction;
+    case VReduction:
       if (verbose) { printf("FuType:%d, choose VReduction %d\n", input.fuType, VReduction); }
       expect_output = vired.get_expected_output(input); return; 
     default:
@@ -528,6 +525,7 @@ bool TestDriver::assign_input_raising(VSimTop *dut_ptr) {
   dut_ptr->io_in_bits_uop_idx = input.uop_idx;
   dut_ptr->io_in_bits_src_widen = input.src_widen;
   dut_ptr->io_in_bits_widen   = input.widen;
+  dut_ptr->io_in_bits_is_signed = input.is_signed;
   dut_ptr->io_in_bits_is_frs1 = input.is_frs1;
   dut_ptr->io_in_bits_is_frs2 = input.is_frs2;
   dut_ptr->io_in_bits_rm      = input.rm;
@@ -549,7 +547,7 @@ int TestDriver::diff_output_falling(VSimTop *dut_ptr) {
     dut_output.fflags[0] = dut_ptr->io_out_bits_fflags_0;
     dut_output.fflags[1] = dut_ptr->io_out_bits_fflags_1;
     dut_output.vxsat = dut_ptr->io_out_bits_vxsat;
-
+    
     if (memcmp(&dut_output, &expect_output, sizeof(dut_output))) {
       printf("Error, compare failed\n");
       display();
