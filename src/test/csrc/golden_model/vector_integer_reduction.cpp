@@ -29,9 +29,9 @@ VecOutput VGMReduction::get_output_vredsum(VecInput input) {
     int one[2] = {-1, -1};
     __uint128_t bodyMask =  (*(__uint128_t *)one >> input.vinfo.vstart << input.vinfo.vstart) 
                        & (*(__uint128_t *)one << (128-input.vinfo.vl) >> (128-input.vinfo.vl));
-    __uint128_t activeMask =  *(__uint128_t *)input.src4 & bodyMask;
+    __uint128_t activeMask = ((input.vinfo.vm == 0) ? *(__uint128_t *)input.src4 : (__uint128_t)-1) & bodyMask;
     int mask_start_idx = 0; // always 0 in vector reduction
-    __uint32_t mask_selected = input.vinfo.vm == 0 ? activeMask >> mask_start_idx : 0xffff;
+    __uint32_t mask_selected = activeMask >> mask_start_idx;
 
     if(widen && sew == 3) {
         printf("VRED Modle, bad widen sew %d\n", input.sew);
@@ -61,10 +61,10 @@ VecOutput VGMReduction::get_output_vredsum(VecInput input) {
         selected_src2[i] = active ? selected_src2[i] : 0; // set inactive element to 0
     }
     switch (sew) {
-        case 0: src1 = widen ? (*((__uint16_t *)&selected_src2[0])) : (*((__uint8_t  *)&selected_src2[0])); break;
-        case 1: src1 = widen ? (*((__uint32_t *)&selected_src2[0])) : (*((__uint16_t *)&selected_src2[0])); break;
-        case 2: src1 = widen ? (*((__uint64_t *)&selected_src2[0])) : (*((__uint32_t *)&selected_src2[0])); break;
-        case 3: src1 = (*((__uint64_t *)&selected_src2[0])); break;
+        case 0: src1 = widen ? (*((__uint16_t *)&input.src1)) : (*((__uint8_t  *)&input.src1)); break;
+        case 1: src1 = widen ? (*((__uint32_t *)&input.src1)) : (*((__uint16_t *)&input.src1)); break;
+        case 2: src1 = widen ? (*((__uint64_t *)&input.src1)) : (*((__uint32_t *)&input.src1)); break;
+        case 3: src1 = (*((__uint64_t *)&input.src1)); break;
         default: printf("VRED Modle, bad sew %d\n", input.sew); exit(1);
     }
 
@@ -120,9 +120,9 @@ VecOutput VGMReduction::get_output_vredmax(VecInput input) {
     int one[2] = {-1, -1};
     __uint128_t bodyMask =  (*(__uint128_t *)one >> input.vinfo.vstart << input.vinfo.vstart) 
                        & (*(__uint128_t *)one << (128-input.vinfo.vl) >> (128-input.vinfo.vl));
-    __uint128_t activeMask =  *(__uint128_t *)input.src4 & bodyMask;
+    __uint128_t activeMask = ((input.vinfo.vm == 0) ? *(__uint128_t *)input.src4 : (__uint128_t)-1) & bodyMask;
     int mask_start_idx = 0; // always 0 in vector reduction
-    __uint32_t mask_selected = input.vinfo.vm == 0 ? activeMask >> mask_start_idx : 0xffff;
+    __uint32_t mask_selected = activeMask >> mask_start_idx;
 
     if(widen && sew == 3) {
         printf("VRED Modle, bad widen sew %d\n", input.sew);
@@ -152,10 +152,10 @@ VecOutput VGMReduction::get_output_vredmax(VecInput input) {
         selected_src2[i] = active ? selected_src2[i] : (is_signed ? (((__uint64_t)-1) << ((8 << sew) - 1)) : 0); // set inactive element to min value
     }
     switch (sew) {
-        case 0: src1 = widen ? (*((__uint16_t *)&selected_src2[0])) : (*((__uint8_t  *)&selected_src2[0])); break;
-        case 1: src1 = widen ? (*((__uint32_t *)&selected_src2[0])) : (*((__uint16_t *)&selected_src2[0])); break;
-        case 2: src1 = widen ? (*((__uint64_t *)&selected_src2[0])) : (*((__uint32_t *)&selected_src2[0])); break;
-        case 3: src1 = (*((__uint64_t *)&selected_src2[0])); break;
+        case 0: src1 = is_signed ? (*((__int8_t *)&input.src1)) : (*((__uint8_t  *)&input.src1)); break;
+        case 1: src1 = is_signed ? (*((__int16_t *)&input.src1)) : (*((__uint16_t *)&input.src1)); break;
+        case 2: src1 = is_signed ? (*((__int32_t *)&input.src1)) : (*((__uint32_t *)&input.src1)); break;
+        case 3: src1 = (*((__uint64_t *)&input.src1)); break;
         default: printf("VRED Modle, bad sew %d\n", input.sew); exit(1);
     }
 
@@ -214,9 +214,9 @@ VecOutput VGMReduction::get_output_vredmin(VecInput input) {
     int one[2] = {-1, -1};
     __uint128_t bodyMask =  (*(__uint128_t *)one >> input.vinfo.vstart << input.vinfo.vstart) 
                        & (*(__uint128_t *)one << (128-input.vinfo.vl) >> (128-input.vinfo.vl));
-    __uint128_t activeMask =  *(__uint128_t *)input.src4 & bodyMask;
+    __uint128_t activeMask = ((input.vinfo.vm == 0) ? *(__uint128_t *)input.src4 : (__uint128_t)-1) & bodyMask;
     int mask_start_idx = 0; // always 0 in vector reduction
-    __uint32_t mask_selected = input.vinfo.vm == 0 ? activeMask >> mask_start_idx : 0xffff;
+    __uint32_t mask_selected = activeMask >> mask_start_idx;
 
     if(widen && sew == 3) {
         printf("VRED Modle, bad widen sew %d\n", input.sew);
@@ -243,13 +243,13 @@ VecOutput VGMReduction::get_output_vredmin(VecInput input) {
             default: printf("VRED Modle, bad sew %d\n", input.sew); exit(1);
         }
         int active = (mask_selected >> i) & 0x1;
-        selected_src2[i] = active ? selected_src2[i] : (is_signed ? ~(((__uint64_t)-1) << ((8 << sew) - 1)) : ~(((__uint64_t)-1) << (8 << sew))); // set inactive element to max value
+        selected_src2[i] = active ? selected_src2[i] : (is_signed ? ~(((__uint64_t)-1) << ((8 << sew) - 1)) : ~0); // set inactive element to max value
     }
     switch (sew) {
-        case 0: src1 = widen ? (*((__uint16_t *)&selected_src2[0])) : (*((__uint8_t  *)&selected_src2[0])); break;
-        case 1: src1 = widen ? (*((__uint32_t *)&selected_src2[0])) : (*((__uint16_t *)&selected_src2[0])); break;
-        case 2: src1 = widen ? (*((__uint64_t *)&selected_src2[0])) : (*((__uint32_t *)&selected_src2[0])); break;
-        case 3: src1 = (*((__uint64_t *)&selected_src2[0])); break;
+        case 0: src1 = is_signed ? (*((__int8_t *)&input.src1)) : (*((__uint8_t  *)&input.src1)); break;
+        case 1: src1 = is_signed ? (*((__int16_t *)&input.src1)) : (*((__uint16_t *)&input.src1)); break;
+        case 2: src1 = is_signed ? (*((__int32_t *)&input.src1)) : (*((__uint32_t *)&input.src1)); break;
+        case 3: src1 = (*((__uint64_t *)&input.src1)); break;
         default: printf("VRED Modle, bad sew %d\n", input.sew); exit(1);
     }
 
@@ -308,9 +308,9 @@ VecOutput VGMReduction::get_output_vredand(VecInput input) {
     int one[2] = {-1, -1};
     __uint128_t bodyMask =  (*(__uint128_t *)one >> input.vinfo.vstart << input.vinfo.vstart) 
                        & (*(__uint128_t *)one << (128-input.vinfo.vl) >> (128-input.vinfo.vl));
-    __uint128_t activeMask =  *(__uint128_t *)input.src4 & bodyMask;
+    __uint128_t activeMask = ((input.vinfo.vm == 0) ? *(__uint128_t *)input.src4 : (__uint128_t)-1) & bodyMask;
     int mask_start_idx = 0; // always 0 in vector reduction
-    __uint32_t mask_selected = input.vinfo.vm == 0 ? activeMask >> mask_start_idx : 0xffff;
+    __uint32_t mask_selected = activeMask >> mask_start_idx;
 
     if(widen && sew == 3) {
         printf("VRED Modle, bad widen sew %d\n", input.sew);
@@ -340,10 +340,10 @@ VecOutput VGMReduction::get_output_vredand(VecInput input) {
         selected_src2[i] = active ? selected_src2[i] : ((uint64_t)-1); // set inactive element to all 1s
     }
     switch (sew) {
-        case 0: src1 = widen ? (*((__uint16_t *)&selected_src2[0])) : (*((__uint8_t  *)&selected_src2[0])); break;
-        case 1: src1 = widen ? (*((__uint32_t *)&selected_src2[0])) : (*((__uint16_t *)&selected_src2[0])); break;
-        case 2: src1 = widen ? (*((__uint64_t *)&selected_src2[0])) : (*((__uint32_t *)&selected_src2[0])); break;
-        case 3: src1 = (*((__uint64_t *)&selected_src2[0])); break;
+        case 0: src1 = widen ? (*((__uint16_t *)&input.src1)) : (*((__uint8_t  *)&input.src1)); break;
+        case 1: src1 = widen ? (*((__uint32_t *)&input.src1)) : (*((__uint16_t *)&input.src1)); break;
+        case 2: src1 = widen ? (*((__uint64_t *)&input.src1)) : (*((__uint32_t *)&input.src1)); break;
+        case 3: src1 = (*((__uint64_t *)&input.src1)); break;
         default: printf("VRED Modle, bad sew %d\n", input.sew); exit(1);
     }
 
@@ -399,9 +399,9 @@ VecOutput VGMReduction::get_output_vredor(VecInput input) {
     int one[2] = {-1, -1};
     __uint128_t bodyMask =  (*(__uint128_t *)one >> input.vinfo.vstart << input.vinfo.vstart) 
                        & (*(__uint128_t *)one << (128-input.vinfo.vl) >> (128-input.vinfo.vl));
-    __uint128_t activeMask =  *(__uint128_t *)input.src4 & bodyMask;
+    __uint128_t activeMask = ((input.vinfo.vm == 0) ? *(__uint128_t *)input.src4 : (__uint128_t)-1) & bodyMask;
     int mask_start_idx = 0; // always 0 in vector reduction
-    __uint32_t mask_selected = input.vinfo.vm == 0 ? activeMask >> mask_start_idx : 0xffff;
+    __uint32_t mask_selected = activeMask >> mask_start_idx;
 
     if(widen && sew == 3) {
         printf("VRED Modle, bad widen sew %d\n", input.sew);
@@ -431,10 +431,10 @@ VecOutput VGMReduction::get_output_vredor(VecInput input) {
         selected_src2[i] = active ? selected_src2[i] : 0; // set inactive element to 0
     }
     switch (sew) {
-        case 0: src1 = widen ? (*((__uint16_t *)&selected_src2[0])) : (*((__uint8_t  *)&selected_src2[0])); break;
-        case 1: src1 = widen ? (*((__uint32_t *)&selected_src2[0])) : (*((__uint16_t *)&selected_src2[0])); break;
-        case 2: src1 = widen ? (*((__uint64_t *)&selected_src2[0])) : (*((__uint32_t *)&selected_src2[0])); break;
-        case 3: src1 = (*((__uint64_t *)&selected_src2[0])); break;
+        case 0: src1 = widen ? (*((__uint16_t *)&input.src1)) : (*((__uint8_t  *)&input.src1)); break;
+        case 1: src1 = widen ? (*((__uint32_t *)&input.src1)) : (*((__uint16_t *)&input.src1)); break;
+        case 2: src1 = widen ? (*((__uint64_t *)&input.src1)) : (*((__uint32_t *)&input.src1)); break;
+        case 3: src1 = (*((__uint64_t *)&input.src1)); break;
         default: printf("VRED Modle, bad sew %d\n", input.sew); exit(1);
     }
 
@@ -490,9 +490,9 @@ VecOutput VGMReduction::get_output_vredxor(VecInput input) {
     int one[2] = {-1, -1};
     __uint128_t bodyMask =  (*(__uint128_t *)one >> input.vinfo.vstart << input.vinfo.vstart) 
                        & (*(__uint128_t *)one << (128-input.vinfo.vl) >> (128-input.vinfo.vl));
-    __uint128_t activeMask =  *(__uint128_t *)input.src4 & bodyMask;
+    __uint128_t activeMask = ((input.vinfo.vm == 0) ? *(__uint128_t *)input.src4 : (__uint128_t)-1) & bodyMask;
     int mask_start_idx = 0; // always 0 in vector reduction
-    __uint32_t mask_selected = input.vinfo.vm == 0 ? activeMask >> mask_start_idx : 0xffff;
+    __uint32_t mask_selected = activeMask >> mask_start_idx;
 
     if(widen && sew == 3) {
         printf("VRED Modle, bad widen sew %d\n", input.sew);
@@ -522,10 +522,10 @@ VecOutput VGMReduction::get_output_vredxor(VecInput input) {
         selected_src2[i] = active ? selected_src2[i] : 0; // set inactive element to 0
     }
     switch (sew) {
-        case 0: src1 = widen ? (*((__uint16_t *)&selected_src2[0])) : (*((__uint8_t  *)&selected_src2[0])); break;
-        case 1: src1 = widen ? (*((__uint32_t *)&selected_src2[0])) : (*((__uint16_t *)&selected_src2[0])); break;
-        case 2: src1 = widen ? (*((__uint64_t *)&selected_src2[0])) : (*((__uint32_t *)&selected_src2[0])); break;
-        case 3: src1 = (*((__uint64_t *)&selected_src2[0])); break;
+        case 0: src1 = widen ? (*((__uint16_t *)&input.src1)) : (*((__uint8_t  *)&input.src1)); break;
+        case 1: src1 = widen ? (*((__uint32_t *)&input.src1)) : (*((__uint16_t *)&input.src1)); break;
+        case 2: src1 = widen ? (*((__uint64_t *)&input.src1)) : (*((__uint32_t *)&input.src1)); break;
+        case 3: src1 = (*((__uint64_t *)&input.src1)); break;
         default: printf("VRED Modle, bad sew %d\n", input.sew); exit(1);
     }
 

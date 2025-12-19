@@ -27,10 +27,10 @@ void TestDriver::set_default_value(VSimTop *dut_ptr) {
 }
 // fix set_test_type to select fuType
 void TestDriver::set_test_type() {
-  test_type.pick_fuType = false;
-  test_type.pick_fuOpType = false;
+  test_type.pick_fuType = true;
+  test_type.pick_fuOpType = true;
   test_type.fuType = VReduction;
-  test_type.fuOpType = VREDAND;
+  test_type.fuOpType = VREDSUM;
   printf("Set Test Type Res: fuType:%d fuOpType:%d\n", test_type.fuType, test_type.fuOpType);
 }
 
@@ -165,7 +165,7 @@ bool TestDriver::gen_random_widen() {
     }
   }
   if(input.sew < 3 && input.fuType == VReduction && input.fuOpType == VREDSUM) {
-    return rand()%2;
+    return rand()%2 == 1;
   }
   return false;
 }
@@ -547,7 +547,7 @@ int TestDriver::diff_output_falling(VSimTop *dut_ptr) {
     dut_output.fflags[0] = dut_ptr->io_out_bits_fflags_0;
     dut_output.fflags[1] = dut_ptr->io_out_bits_fflags_1;
     dut_output.vxsat = dut_ptr->io_out_bits_vxsat;
-    
+
     if (memcmp(&dut_output, &expect_output, sizeof(dut_output))) {
       printf("Error, compare failed\n");
       display();
@@ -570,7 +570,7 @@ int TestDriver::diff_output_falling(VSimTop *dut_ptr) {
 void TestDriver::display_ref_input() {
   printf("REF Input:\n");
   printf("  src1 %016lx_%016lx src2 %016lx_%016lx src3 %016lx_%016lx src4 %016lx_%016lx\n", input.src1[1], input.src1[0], input.src2[1], input.src2[0], input.src3[1], input.src3[0], input.src4[1], input.src4[0]);
-  printf("  fuType %x fuOpType %x sew %x uop_idx %d src_widen %d widen %d is_frs1 %d rm %d\n", input.fuType, input.fuOpType, input.sew, input.uop_idx, input.src_widen, input.widen, input.is_frs1, input.rm);
+  printf("  fuType %x fuOpType %x sew %x uop_idx %d src_widen %d widen %d signed %d is_frs1 %d rm %d\n", input.fuType, input.fuOpType, input.sew, input.uop_idx, input.src_widen, input.widen, input.is_signed, input.is_frs1, input.rm);
   printf("  vstart %d vl %d vlmul %x vm %d ta %d ma %d\n", input.vinfo.vstart, input.vinfo.vl, input.vinfo.vlmul, input.vinfo.vm, input.vinfo.ta, input.vinfo.ma);
 }
 
