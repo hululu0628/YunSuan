@@ -12,6 +12,9 @@ trait ReductionParam {
   val vlenb = VIFuParam.VLENB
 }
 
+// TODO:
+// 1. set final outputs properly
+// 2. move vs1 initialization to top module instead of submodules
 class NewReduction extends Module with ReductionParam {
   val io = IO(new Bundle {
     val in = Flipped(ValidIO(new VIFuInput))
@@ -51,10 +54,9 @@ class NewReduction extends Module with ReductionParam {
   val vwredsum_vs = opcode.isVredsum && srcTypeVs2(2).asBool && (vdType(1, 0) === (srcTypeVs2(1, 0) + 1.U))
   val vwredsumu_vs = opcode.isVredsum && !srcTypeVs2(2).asBool && (vdType(1, 0) === (srcTypeVs2(1, 0) + 1.U))
 
-  val vs12 = Cat(vs1, vs2)
-  val vs12_bytes = vs12.asTypeOf(Vec(2 * vlenb, UInt(8.W)))
-  val vs12_masked = Wire(UInt((2 * VLEN).W))
-  val vs12m_bytes = Wire(Vec(2 * vlenb, UInt(8.W)))
+  val vs2_bytes = vs2.asTypeOf(Vec(vlenb, UInt(8.W)))
+  val vs2_masked = Wire(UInt(VLEN.W))
+  val vs2m_bytes = Wire(Vec(vlenb, UInt(8.W)))
 
   val valid_s1_r = RegNext(InValid)
   val vredand_vs_s1_r = RegEnable(vredand_vs, false.B, InValid)
@@ -62,14 +64,20 @@ class NewReduction extends Module with ReductionParam {
   val vredxor_vs_s1_r = RegEnable(vredxor_vs, false.B, InValid)
   val vredsum_s1_r = RegEnable(vredsum_vs || vwredsum_vs || vwredsumu_vs, false.B, InValid)
   val vredcomp_s1_r = RegEnable(vredmax_vs || vredmaxu_vs || vredmin_vs || vredminu_vs, false.B, InValid)
-  val vs12m_s1_r = RegEnable(vs12_masked, 0.U, InValid)
+  val vs1_s1_r = RegEnable(vs1, 0.U, InValid)
+  val vs2m_s1_r = RegEnable(vs2_masked, 0.U, InValid)
+  val old_vd_s1_r = RegEnable(old_vd, 0.U, InValid)
   val vsew_s1_r = RegEnable(vsew, 0.U, InValid)
-  val signed_s1_r = RegEnable(signed, 0.U, InValid)
-  val widen_s1_r = RegEnable(widen, 0.U, InValid)
-  val max_s1_r = RegEnable(max, 0.U, InValid)
+  val signed_s1_r = RegEnable(signed, false.B, InValid)
+  val widen_s1_r = RegEnable(widen, false.B, InValid)
+  val max_s1_r = RegEnable(max, false.B, InValid)
+  val ta_s1_r = RegEnable(ta, false.B, InValid)
   val logicRes_s1 = Wire(UInt(VLEN.W))
 
   val valid_s2_r = RegNext(valid_s1_r)
+  val vsew_s2_r = RegEnable(vsew_s1_r, 0.U, valid_s1_r)
+  val old_vd_s2_r = RegEnable(old_vd_s1_r, 0.U, valid_s1_r)
+  val ta_s2_r = RegEnable(ta_s1_r, false.B, valid_s1_r)
   val sumRes_s2 = Wire(UInt(VLEN.W))
   val compareRes_s2 = Wire(UInt(VLEN.W))
   val vredlogic_s2_r = RegEnable(vredand_vs_s1_r || vredor_vs_s1_r || vredxor_vs_s1_r, false.B, valid_s1_r)
@@ -105,30 +113,36 @@ class NewReduction extends Module with ReductionParam {
     }
   }
 
-  for (i <- 0 until 2 * vlenb) {
+  for (i <- 0 until vlenb) {
     val fillByte = MuxLookup(vsew, 0.U)(Seq(
       VSew.e8 -> fillValue8,
       VSew.e16 -> fillValue16(8 * (i % 2) + 7, 8 * (i % 2)),
       VSew.e32 -> fillValue32(8 * (i % 4) + 7, 8 * (i % 4)),
       VSew.e64 -> fillValue64(8 * (i % 8) + 7, 8 * (i % 8)),
     ))
-    vs12m_bytes(i) := Mux((!vm && !vmask(i)) || (i.U >= vlRemainBytes.asUInt), fillByte, vs12_bytes(i))
+    val mask = MuxLookup(vsew, 1.U)(Seq(
+      VSew.e8 -> vmask(i),
+      VSew.e16 -> vmask(i >> 1),
+      VSew.e32 -> vmask(i >> 2),
+      VSew.e64 -> vmask(i >> 3),
+    ))
+    vs2m_bytes(i) := Mux((!vm && !mask) || (i.U >= vlRemainBytes.asUInt), fillByte, vs2_bytes(i))
   }
-  vs12_masked := Cat(vs12m_bytes.reverse)
+  vs2_masked := Cat(vs2m_bytes.reverse)
 
   // stage 1
   val vredand = Module(new VRedAND())
   vredand.io.vsew := vsew_s1_r
-  vredand.io.v1 := vs12m_s1_r(127, 0)
-  vredand.io.v2 := vs12m_s1_r(191, 128)
+  vredand.io.v1 := vs2m_s1_r(127, 0)
+  vredand.io.v2 := vs1_s1_r
   val vredor = Module(new VRedOR())
   vredor.io.vsew := vsew_s1_r
-  vredor.io.v1 := vs12m_s1_r(127, 0)
-  vredor.io.v2 := vs12m_s1_r(191, 128)
+  vredor.io.v1 := vs2m_s1_r(127, 0)
+  vredor.io.v2 := vs1_s1_r
   val vredxor = Module(new VRedXOR())
   vredxor.io.vsew := vsew_s1_r
-  vredxor.io.v1 := vs12m_s1_r(127, 0)
-  vredxor.io.v2 := vs12m_s1_r(191, 128)
+  vredxor.io.v1 := vs2m_s1_r(127, 0)
+  vredxor.io.v2 := vs1_s1_r
 
   logicRes_s1 := 0.U
   when(vredand_vs_s1_r) {
@@ -136,7 +150,7 @@ class NewReduction extends Module with ReductionParam {
   }.elsewhen(vredor_vs_s1_r) {
     logicRes_s1 := Cat(0.U((VLEN - XLEN).W), vredor.io.vout)
   }.elsewhen(vredxor_vs_s1_r) {
-    logicRes_s1 := Cat(0.U((VLEN - XLEN).W), vredand.io.vout)
+    logicRes_s1 := Cat(0.U((VLEN - XLEN).W), vredxor.io.vout)
   }
 
   val logicRes_s2_r = RegEnable(logicRes_s1, 0.U, valid_s1_r)
@@ -146,8 +160,8 @@ class NewReduction extends Module with ReductionParam {
   vredwsum.io.signed := signed_s1_r
   vredwsum.io.widen := widen_s1_r
   vredwsum.io.vsew := vsew_s1_r
-  vredwsum.io.v1 := vs12m_s1_r(127, 0)
-  vredwsum.io.v2 := vs12m_s1_r(191, 128)
+  vredwsum.io.v1 := vs2m_s1_r(127, 0)
+  vredwsum.io.v2 := vs1_s1_r
 
   sumRes_s2 := Cat(0.U((VLEN - XLEN).W), vredwsum.io.vout)
 
@@ -156,19 +170,29 @@ class NewReduction extends Module with ReductionParam {
   vredcomp.io.signed := signed_s1_r
   vredcomp.io.vsew := vsew_s1_r
   vredcomp.io.max := max_s1_r
-  vredcomp.io.v1 := vs12m_s1_r(127, 0)
-  vredcomp.io.v2 := vs12m_s1_r(191, 128)
+  vredcomp.io.v1 := vs2m_s1_r(127, 0)
+  vredcomp.io.v2 := vs1_s1_r
 
   compareRes_s2 := Cat(0.U((VLEN - XLEN).W), vredcomp.io.vout)
 
-  io.out.vd := 0.U
+  val vd_val = Wire(UInt(128.W))
+  vd_val := 0.U
   when(vredlogic_s2_r) {
-    io.out.vd := logicRes_s2_r
+    vd_val := logicRes_s2_r
   }.elsewhen(vredsum_s2_r) {
-    io.out.vd := sumRes_s2
+    vd_val := sumRes_s2
   }.elsewhen(vredcomp_s2_r) {
-    io.out.vd := compareRes_s2
+    vd_val := compareRes_s2
   }
+  // need modify
+  val vd_mask = Wire(UInt(128.W))
+  vd_mask := MuxLookup(vsew_s2_r, 0.U)(Seq(
+    VSew.e8 -> Cat(Fill(VLEN - 8, 1.U), 0.U(8.W)),
+    VSew.e16 -> Cat(Fill(VLEN - 16, 1.U), 0.U(16.W)),
+    VSew.e32 -> Cat(Fill(VLEN - 32, 1.U), 0.U(32.W)),
+    VSew.e64 -> Cat(Fill(VLEN - 64, 1.U), 0.U(64.W)),
+  ))
+  io.out.vd := Mux(ta_s2_r, (vd_mask | vd_val), ((vd_mask & old_vd_s2_r) | vd_val))
   io.out.vxsat := false.B
 }
 
@@ -191,7 +215,7 @@ class VRedAND extends Module with ReductionParam {
 
   val out64 = in1 & in2
   val out32 = out64(31,0) & out64(63,32)
-  val out16 = out32(15,0) & out32(31,0)
+  val out16 = out32(15,0) & out32(31,16)
   val out8 = out16(7,0) & out16(15,8)
 
   io.vout := MuxLookup(io.vsew, 0.U)(Seq(
@@ -211,18 +235,18 @@ class VRedOR extends Module with ReductionParam {
   })
   val v1 = io.v1
   val v2 = MuxLookup(io.vsew, 0.U)(Seq(
-    VSew.e8 -> Cat(Fill(XLEN - 8, 1.U), io.v2(7,0)),
-    VSew.e16 -> Cat(Fill(XLEN - 16, 1.U), io.v2(15,0)),
-    VSew.e32 -> Cat(Fill(XLEN - 32, 1.U), io.v2(31,0)),
+    VSew.e8 -> Cat(Fill(XLEN - 8, 0.U), io.v2(7,0)),
+    VSew.e16 -> Cat(Fill(XLEN - 16, 0.U), io.v2(15,0)),
+    VSew.e32 -> Cat(Fill(XLEN - 32, 0.U), io.v2(31,0)),
     VSew.e64 -> io.v2,
   ))
-  val in1 = v1(63, 0) & v2
+  val in1 = v1(63, 0) | v2
   val in2 = v1(127, 64)
 
-  val out64 = in1 & in2
-  val out32 = out64(31,0) & out64(63,32)
-  val out16 = out32(15,0) & out32(31,0)
-  val out8 = out16(7,0) & out16(15,8)
+  val out64 = in1 | in2
+  val out32 = out64(31,0) | out64(63,32)
+  val out16 = out32(15,0) | out32(31,16)
+  val out8 = out16(7,0) | out16(15,8)
 
   io.vout := MuxLookup(io.vsew, 0.U)(Seq(
     VSew.e8 -> Cat(0.U((XLEN - 8).W), out8),
@@ -241,18 +265,18 @@ class VRedXOR extends Module with ReductionParam {
   })
   val v1 = io.v1
   val v2 = MuxLookup(io.vsew, 0.U)(Seq(
-    VSew.e8 -> Cat(Fill(XLEN - 8, 1.U), io.v2(7,0)),
-    VSew.e16 -> Cat(Fill(XLEN - 16, 1.U), io.v2(15,0)),
-    VSew.e32 -> Cat(Fill(XLEN - 32, 1.U), io.v2(31,0)),
+    VSew.e8 -> Cat(Fill(XLEN - 8, 0.U), io.v2(7,0)),
+    VSew.e16 -> Cat(Fill(XLEN - 16, 0.U), io.v2(15,0)),
+    VSew.e32 -> Cat(Fill(XLEN - 32, 0.U), io.v2(31,0)),
     VSew.e64 -> io.v2,
   ))
-  val in1 = v1(63, 0) & v2
+  val in1 = v1(63, 0) ^ v2
   val in2 = v1(127, 64)
 
-  val out64 = in1 & in2
-  val out32 = out64(31,0) & out64(63,32)
-  val out16 = out32(15,0) & out32(31,0)
-  val out8 = out16(7,0) & out16(15,8)
+  val out64 = in1 ^ in2
+  val out32 = out64(31,0) ^ out64(63,32)
+  val out16 = out32(15,0) ^ out32(31,16)
+  val out8 = out16(7,0) ^ out16(15,8)
 
   io.vout := MuxLookup(io.vsew, 0.U)(Seq(
     VSew.e8 -> Cat(0.U((XLEN - 8).W), out8),
@@ -528,11 +552,11 @@ class VRedComp extends Module {
 
   io.vout := vd_max_sew64_s2_r
   when(vsew_reg === 0.U) {
-    io.vout := vd2_max_sew8
+    io.vout := Cat(0.U, vd2_max_sew8)
   }.elsewhen(vsew_reg === 1.U) {
-    io.vout := vd1_max_sew16
+    io.vout := Cat(0.U, vd1_max_sew16)
   }.elsewhen(vsew_reg === 2.U) {
-    io.vout := vd1_max_sew32
+    io.vout := Cat(0.U, vd1_max_sew32)
   }
 }
 /*

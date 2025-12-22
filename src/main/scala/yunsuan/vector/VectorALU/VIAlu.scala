@@ -32,7 +32,7 @@ class VIAlu extends Module {
   val vsew = vdType(1, 0)
   val vs2 = io.in.bits.vs2
 
-  val vReduAlu = Module(new Reduction)
+  val vReduAlu = Module(new NewReduction)
   vReduAlu.io.in := io.in
 
   val vMaskAlu = Module(new VMask)
