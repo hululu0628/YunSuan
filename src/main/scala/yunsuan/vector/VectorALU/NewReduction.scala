@@ -15,6 +15,8 @@ trait ReductionParam {
 // TODO:
 // 1. set final outputs properly
 // 2. move vs1 initialization to top module instead of submodules
+// 3. modify name of input port
+// 4. modify VREDCOMP
 class NewReduction extends Module with ReductionParam {
   val io = IO(new Bundle {
     val in = Flipped(ValidIO(new VIFuInput))
@@ -76,6 +78,7 @@ class NewReduction extends Module with ReductionParam {
 
   val valid_s2_r = RegNext(valid_s1_r)
   val vsew_s2_r = RegEnable(vsew_s1_r, 0.U, valid_s1_r)
+  val widen_s2_r = RegEnable(widen_s1_r, 0.U, valid_s1_r)
   val old_vd_s2_r = RegEnable(old_vd_s1_r, 0.U, valid_s1_r)
   val ta_s2_r = RegEnable(ta_s1_r, false.B, valid_s1_r)
   val sumRes_s2 = Wire(UInt(VLEN.W))
@@ -186,7 +189,7 @@ class NewReduction extends Module with ReductionParam {
   }
   // need modify
   val vd_mask = Wire(UInt(128.W))
-  vd_mask := MuxLookup(vsew_s2_r, 0.U)(Seq(
+  vd_mask := MuxLookup(vsew_s2_r + widen_s2_r, 0.U)(Seq(
     VSew.e8 -> Cat(Fill(VLEN - 8, 1.U), 0.U(8.W)),
     VSew.e16 -> Cat(Fill(VLEN - 16, 1.U), 0.U(16.W)),
     VSew.e32 -> Cat(Fill(VLEN - 32, 1.U), 0.U(32.W)),
@@ -342,6 +345,11 @@ class VRedWSUM extends Module with ReductionParam {
   val v2_64 = io.v1(127,64).asTypeOf(Vec(8, UInt(8.W)))
   val scalar = io.v2
 
+  val scalar_s2_r = RegNext(scalar)
+  val vsew_s2_r = RegNext(io.vsew)
+  val widen_s2_r = RegNext(io.widen)
+  val signed_s2_r = RegNext(io.signed)
+
   val out64 = Wire(UInt(64.W))
   val out32 = Wire(UInt(32.W))
   val out16 = Wire(UInt(16.W))
@@ -397,27 +405,27 @@ class VRedWSUM extends Module with ReductionParam {
   val scarry_1x4 = adder8.io.vout_scarry
 
   out8 := adder8.io.vout(0)
-  out8_carry := Mux(io.signed, scarry_1x4(0), ucarry_1x4(0))
-  out16 := (Cat(Mux(io.signed, scarry_2x3(1), ucarry_2x3(1)), Cat(v2_8.reverse), Cat(v1_8.reverse)) + Cat(ucarry_2x3(0), 0.U(8.W)))(15,0)
-  out16_carry := (Cat(Mux(io.signed, scarry_2x3(1), ucarry_2x3(1)), Cat(v2_8.reverse), Cat(v1_8.reverse)) + Cat(ucarry_2x3(0), 0.U(8.W)))(18,16)
-  out32 := (Cat(Mux(io.signed, scarry_4x2(3), ucarry_4x2(3)), Cat(v2_16.reverse), Cat(v1_16.reverse)) +
+  out8_carry := Mux(signed_s2_r, scarry_1x4(0), ucarry_1x4(0))
+  out16 := (Cat(Mux(signed_s2_r, scarry_2x3(1), ucarry_2x3(1)), Cat(v2_8.reverse), Cat(v1_8.reverse)) + Cat(ucarry_2x3(0), 0.U(8.W)))(15,0)
+  out16_carry := (Cat(Mux(signed_s2_r, scarry_2x3(1), ucarry_2x3(1)), Cat(v2_8.reverse), Cat(v1_8.reverse)) + Cat(ucarry_2x3(0), 0.U(8.W)))(18,16)
+  out32 := (Cat(Mux(signed_s2_r, scarry_4x2(3), ucarry_4x2(3)), Cat(v2_16.reverse), Cat(v1_16.reverse)) +
     Cat(ucarry_4x2(2), 0.U(6.W), ucarry_4x2(1), 0.U(6.W), ucarry_4x2(0), 0.U(8.W)))(31,0)
-  out32_carry := (Cat(Mux(io.signed, scarry_4x2(3), ucarry_4x2(3)), Cat(v2_16.reverse), Cat(v1_16.reverse)) +
+  out32_carry := (Cat(Mux(signed_s2_r, scarry_4x2(3), ucarry_4x2(3)), Cat(v2_16.reverse), Cat(v1_16.reverse)) +
     Cat(ucarry_4x2(2), 0.U(6.W), ucarry_4x2(1), 0.U(6.W), ucarry_4x2(0), 0.U(8.W)))(33,32)
   out64 := Cat(adder64.io.vout_nocarry.reverse)
 
   val res64 = RegNext(out64 + scalar)
-  val res32 = out32 + scalar(31,0)
-  val res32_widen = Cat(Fill(30, out32_carry(1)), out32_carry, out32) + scalar
-  val res16 = out16 + scalar(15,0)
-  val res16_widen = Cat(Fill(13, out16_carry(2)), out16_carry, out16) + scalar(31,0)
-  val res8 = out8 + scalar(7, 0)
-  val res8_widen = Cat(Fill(4, out8_carry(3)), out8_carry, out8) + scalar(15, 0)
+  val res32 = out32 + scalar_s2_r(31,0)
+  val res32_widen = Cat(Fill(30, out32_carry(1) & signed_s2_r), out32_carry, out32) + scalar_s2_r
+  val res16 = out16 + scalar_s2_r(15,0)
+  val res16_widen = Cat(Fill(13, out16_carry(2) & signed_s2_r), out16_carry, out16) + scalar_s2_r(31,0)
+  val res8 = out8 + scalar_s2_r(7, 0)
+  val res8_widen = Cat(Fill(4, out8_carry(3) & signed_s2_r), out8_carry, out8) + scalar_s2_r(15, 0)
 
-  io.vout := MuxLookup(io.vsew, 0.U)(Seq(
-    VSew.e8 -> Mux(io.widen, res8_widen.asUInt.pad(64), res8.asUInt.pad(64)),
-    VSew.e16 -> Mux(io.widen, res16_widen.asUInt.pad(64), res16.asUInt.pad(64)),
-    VSew.e32 -> Mux(io.widen, res32_widen.asUInt.pad(64), res32.asUInt.pad(64)),
+  io.vout := MuxLookup(vsew_s2_r, 0.U)(Seq(
+    VSew.e8 -> Mux(widen_s2_r, res8_widen.asUInt.pad(64), res8.asUInt.pad(64)),
+    VSew.e16 -> Mux(widen_s2_r, res16_widen.asUInt.pad(64), res16.asUInt.pad(64)),
+    VSew.e32 -> Mux(widen_s2_r, res32_widen.asUInt.pad(64), res32.asUInt.pad(64)),
     VSew.e64 -> res64.asUInt
   ))
 }

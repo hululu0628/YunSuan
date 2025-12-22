@@ -30,7 +30,7 @@ void TestDriver::set_test_type() {
   test_type.pick_fuType = true;
   test_type.pick_fuOpType = true;
   test_type.fuType = VReduction;
-  test_type.fuOpType = VREDOR;
+  test_type.fuOpType = VREDMIN;
   printf("Set Test Type Res: fuType:%d fuOpType:%d\n", test_type.fuType, test_type.fuOpType);
 }
 
