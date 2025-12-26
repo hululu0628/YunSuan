@@ -314,7 +314,7 @@ class SimTop() extends VPUTestModule {
 
   // Named vialu, but only test vreduction in this version
   val vialu = Module(new VIAlu)
-  vialu.io.in.valid := busy && fuType === VPUTestFuType.vred
+  vialu.io.in.valid := busy && !has_issued && fuType === VPUTestFuType.vred
   vialu.io.in.bits.opcode := opcode(5,0).asTypeOf(new VAluOpcode)
   vialu.io.in.bits.info.vm := vm
   vialu.io.in.bits.info.ma := ma
