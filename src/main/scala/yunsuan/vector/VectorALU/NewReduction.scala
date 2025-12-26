@@ -289,147 +289,6 @@ class VRedXOR extends Module with ReductionParam {
   ))
 }
 
-class CarryAdder_xy(val xbyte: Int = 1, val ycarry: Int = 0) extends Module {
-  val io = IO(new Bundle() {
-    val v1 = Input(Vec(xbyte, UInt(8.W)))
-    val v2 = Input(Vec(xbyte, UInt(8.W)))
-    val v1_ucarry = Input(Vec(xbyte, UInt(ycarry.W)))
-    val v1_scarry = Input(Vec(xbyte, UInt(ycarry.W)))
-    val v2_ucarry = Input(Vec(xbyte, UInt(ycarry.W)))
-    val v2_scarry = Input(Vec(xbyte, UInt(ycarry.W)))
-    val vout = Output(Vec(xbyte, UInt(8.W)))
-    val vout_ucarry = Output(Vec(xbyte, UInt((ycarry+1).W)))
-    val vout_scarry = Output(Vec(xbyte, UInt((ycarry+1).W)))
-    val vout_nocarry = Output(Vec(xbyte, UInt(8.W)))
-  })
-
-  val v1 = io.v1
-  val v2 = io.v2
-  val v1_ucarry = io.v1_ucarry
-  val v1_scarry = io.v1_scarry
-  val v2_ucarry = io.v2_ucarry
-  val v2_scarry = io.v2_scarry
-  val vout = io.vout
-  val vout_ucarry = io.vout_ucarry
-  val vout_scarry = io.vout_scarry
-  val carry = Wire(Vec(xbyte, UInt(1.W)))
-  val out = Wire(UInt((8 * xbyte).W))
-
-  for (i <- 0 until xbyte) {
-    vout(i) := (v1(i) +& v2(i))(7,0)
-    carry(i) := (v1(i) +& v2(i))(8)
-    if(ycarry > 0) {
-      vout_ucarry(i) := Cat(0.U(1.W), v1_ucarry(i)) + Cat(0.U(1.W), v2_ucarry(i)) + carry(i)
-      vout_scarry(i) := Cat(v1_scarry(i)(ycarry-1), v1_scarry(i)) + Cat(v2_scarry(i)(ycarry-1), v2_scarry(i)) + carry(i)
-    } else {
-      vout_ucarry(i) := carry(i)
-      vout_scarry(i) := v1(i)(7) + v2(i)(7) + carry(i)
-    }
-  }
-  out := Cat(io.v1.reverse) + Cat(io.v2.reverse)
-  for (i <- 0 until xbyte) {
-    io.vout_nocarry(i) := out(8*i+7, 8*i)
-  }
-}
-
-class VRedWSUM extends Module with ReductionParam {
-  val io = IO(new Bundle {
-    val widen = Input(Bool())
-    val signed = Input(Bool())
-    val vsew = Input(UInt(2.W))
-    val v1 = Input(UInt(128.W))
-    val v2 = Input(UInt(64.W))
-    val vout = Output(UInt(64.W))
-  })
-  val v1_64 = io.v1(63,0).asTypeOf(Vec(8, UInt(8.W)))
-  val v2_64 = io.v1(127,64).asTypeOf(Vec(8, UInt(8.W)))
-  val scalar = io.v2
-
-  val scalar_s2_r = RegNext(scalar)
-  val vsew_s2_r = RegNext(io.vsew)
-  val widen_s2_r = RegNext(io.widen)
-  val signed_s2_r = RegNext(io.signed)
-
-  val out64 = Wire(UInt(64.W))
-  val out32 = Wire(UInt(32.W))
-  val out16 = Wire(UInt(16.W))
-  val out8 = Wire(UInt(8.W))
-  val out32_carry = Wire(UInt(2.W))
-  val out16_carry = Wire(UInt(3.W))
-  val out8_carry = Wire(UInt(4.W))
-
-  val adder64 = Module(new CarryAdder_xy(8, 0))
-  adder64.io.v1 := v1_64
-  adder64.io.v2 := v2_64
-  adder64.io.v1_ucarry := DontCare
-  adder64.io.v1_scarry := DontCare
-  adder64.io.v2_ucarry := DontCare
-  adder64.io.v2_scarry := DontCare
-  val v1_32 = adder64.io.vout.take(4)
-  val v2_32 = adder64.io.vout.drop(4)
-  val ucarry_8x1 = adder64.io.vout_ucarry
-  val scarry_8x1 = adder64.io.vout_scarry
-
-  val adder32 = Module(new CarryAdder_xy(4,1))
-  adder32.io.v1 := v1_32
-  adder32.io.v2 := v2_32
-  adder32.io.v1_ucarry := ucarry_8x1.take(4)
-  adder32.io.v2_ucarry := ucarry_8x1.drop(4)
-  adder32.io.v1_scarry := scarry_8x1.take(4)
-  adder32.io.v2_scarry := scarry_8x1.drop(4)
-  val v1_16 = RegNext(VecInit(adder32.io.vout.take(2)))
-  val v2_16 = RegNext(VecInit(adder32.io.vout.drop(2)))
-  val ucarry_4x2 = RegNext(adder32.io.vout_ucarry)
-  val scarry_4x2 = RegNext(adder32.io.vout_scarry)
-
-  val adder16 = Module(new CarryAdder_xy(2,2))
-  adder16.io.v1 := v1_16
-  adder16.io.v2 := v2_16
-  adder16.io.v1_ucarry := ucarry_4x2.take(2)
-  adder16.io.v2_ucarry := ucarry_4x2.drop(2)
-  adder16.io.v1_scarry := scarry_4x2.take(2)
-  adder16.io.v2_scarry := scarry_4x2.drop(2)
-  val v1_8 = adder16.io.vout.take(1)
-  val v2_8 = adder16.io.vout.drop(1)
-  val ucarry_2x3 = adder16.io.vout_ucarry
-  val scarry_2x3 = adder16.io.vout_scarry
-
-  val adder8 = Module(new CarryAdder_xy(1,3))
-  adder8.io.v1 := v1_8
-  adder8.io.v2 := v2_8
-  adder8.io.v1_ucarry := ucarry_2x3.take(1)
-  adder8.io.v2_ucarry := ucarry_2x3.drop(1)
-  adder8.io.v1_scarry := scarry_2x3.take(1)
-  adder8.io.v2_scarry := scarry_2x3.drop(1)
-  val ucarry_1x4 = adder8.io.vout_ucarry
-  val scarry_1x4 = adder8.io.vout_scarry
-
-  out8 := adder8.io.vout(0)
-  out8_carry := Mux(signed_s2_r, scarry_1x4(0), ucarry_1x4(0))
-  out16 := (Cat(Mux(signed_s2_r, scarry_2x3(1), ucarry_2x3(1)), Cat(v2_8.reverse), Cat(v1_8.reverse)) + Cat(ucarry_2x3(0), 0.U(8.W)))(15,0)
-  out16_carry := (Cat(Mux(signed_s2_r, scarry_2x3(1), ucarry_2x3(1)), Cat(v2_8.reverse), Cat(v1_8.reverse)) + Cat(ucarry_2x3(0), 0.U(8.W)))(18,16)
-  out32 := (Cat(Mux(signed_s2_r, scarry_4x2(3), ucarry_4x2(3)), Cat(v2_16.reverse), Cat(v1_16.reverse)) +
-    Cat(ucarry_4x2(2), 0.U(6.W), ucarry_4x2(1), 0.U(6.W), ucarry_4x2(0), 0.U(8.W)))(31,0)
-  out32_carry := (Cat(Mux(signed_s2_r, scarry_4x2(3), ucarry_4x2(3)), Cat(v2_16.reverse), Cat(v1_16.reverse)) +
-    Cat(ucarry_4x2(2), 0.U(6.W), ucarry_4x2(1), 0.U(6.W), ucarry_4x2(0), 0.U(8.W)))(33,32)
-  out64 := Cat(adder64.io.vout_nocarry.reverse)
-
-  val res64 = RegNext(out64 + scalar)
-  val res32 = out32 + scalar_s2_r(31,0)
-  val res32_widen = Cat(Fill(30, out32_carry(1) & signed_s2_r), out32_carry, out32) + scalar_s2_r
-  val res16 = out16 + scalar_s2_r(15,0)
-  val res16_widen = Cat(Fill(13, out16_carry(2) & signed_s2_r), out16_carry, out16) + scalar_s2_r(31,0)
-  val res8 = out8 + scalar_s2_r(7, 0)
-  val res8_widen = Cat(Fill(4, out8_carry(3) & signed_s2_r), out8_carry, out8) + scalar_s2_r(15, 0)
-
-  io.vout := MuxLookup(vsew_s2_r, 0.U)(Seq(
-    VSew.e8 -> Mux(widen_s2_r, res8_widen.asUInt.pad(64), res8.asUInt.pad(64)),
-    VSew.e16 -> Mux(widen_s2_r, res16_widen.asUInt.pad(64), res16.asUInt.pad(64)),
-    VSew.e32 -> Mux(widen_s2_r, res32_widen.asUInt.pad(64), res32.asUInt.pad(64)),
-    VSew.e64 -> res64.asUInt
-  ))
-}
-
 class VRedComp extends Module {
   val io = IO(new Bundle {
     val max = Input(Bool())
@@ -568,18 +427,6 @@ class VRedComp extends Module {
   }
 }
 /*
-class Adder_xb(w: Int) extends Module {
-  val io = IO(new Bundle() {
-    val in1 = Input(UInt(w.W))
-    val in2 = Input(UInt(w.W))
-    val cin = Input(UInt(1.W))
-    val cout = Output(UInt(1.W))
-  })
-
-  private val bits = Cat(0.U(1.W), io.in1, io.cin) + Cat(0.U(1.W), io.in2, io.cin)
-  io.cout := bits(w + 1)
-}
-
 class compare_2to1(w: Int) extends Module {
   val io = IO(new Bundle() {
     val a = Input(UInt(w.W))
@@ -590,16 +437,11 @@ class compare_2to1(w: Int) extends Module {
   })
 
   // a-b
-  val b_inv = ~io.b
-  val cout = Wire(Bool())
+  val fs_a = Cat(io.signed ^ io.a(w-1), io.a(w-2, 0))
+  val fs_b = Cat(io.signed ^ io.b(w-1), io.b(w-2, 0))
   val less = Wire(Bool())
 
-  val adder_xb = Module(new Adder_xb(w = w))
-  adder_xb.io.in1 := b_inv
-  adder_xb.io.in2 := io.a
-  adder_xb.io.cin := 1.U
-  cout := adder_xb.io.cout
-  less := Mux(io.signed, io.a(w - 1) ^ b_inv(w - 1) ^ cout, !cout)
+  less := fs_a < fs_b
   io.c := Mux(less === io.max, io.b, io.a)
 }
 
@@ -614,20 +456,14 @@ class compare_3to1(w: Int) extends Module {
   })
 
   // a-b, a-c, b-c
-  val vs_hi = Cat(io.a, io.a, io.b)
-  val vs_lo = Cat(io.b, io.c, io.c)
-  val vs_lo_inv = ~vs_lo
-  val cout = Wire(Vec(3, Bool()))
+  val fs_a = Cat(io.signed ^ io.a(w-1), io.a(w-2, 0))
+  val fs_b = Cat(io.signed ^ io.b(w-1), io.b(w-2, 0))
+  val fs_c = Cat(io.signed ^ io.c(w-1), io.c(w-2, 0))
   val less = Wire(Vec(3, Bool()))
 
-  for (i <- 0 until 3) {
-    val adder_xb = Module(new Adder_xb(w = w))
-    adder_xb.io.in1 := vs_lo_inv(w * (i + 1) - 1, w * i)
-    adder_xb.io.in2 := vs_hi(w * (i + 1) - 1, w * i)
-    adder_xb.io.cin := 1.U
-    cout(i) := adder_xb.io.cout
-    less(i) := Mux(io.signed, vs_hi(w * (i + 1) - 1) ^ vs_lo_inv(w * (i + 1) - 1) ^ cout(i), !cout(i))
-  }
+  less(2) := fs_a < fs_b
+  less(1) := fs_a < fs_c
+  less(0) := fs_b < fs_c
 
   io.d := 0.U
   when((less(2) && less(1) && !io.max) || (!less(2) && !less(1) && io.max)) {
@@ -639,13 +475,193 @@ class compare_3to1(w: Int) extends Module {
   }
 }
 */
-class Test extends Module {
-  val io = IO(new Bundle(){
-    val a = Input(UInt(8.W))
-    val b = Output(UInt(8.W))
+class VRedWSUM extends Module {
+  val io = IO(new Bundle() {
+    val widen = Input(Bool())
+    val signed = Input(Bool())
+    val vsew = Input(UInt(2.W))
+    val v1 = Input(UInt(128.W))
+    val v2 = Input(UInt(64.W))
+    val vout = Output(UInt(64.W))
   })
-  io.b := io.a + 1.U
+  val vector = io.v1
+  val scalar = io.v2
+  val signed = io.signed
+  val widen = io.widen
+
+  val vd_reg = RegInit(0.U(128.W))
+  val vd_vsew_reg_s1 = io.vsew
+  val signed_s2_r = RegNext(io.signed)
+  val widen_s2_r = RegNext(io.widen)
+
+  // sew64 sum
+  val sum_sew64 = Wire(UInt(64.W))
+  val carry_sew64 = Wire(UInt(64.W))
+  val vd_sew64 = Wire(UInt(64.W))
+  // stage 1
+  val csa_3to2_sew64 = Module(new CSA3to2(width = 64))
+  csa_3to2_sew64.io.in_a := vector(63, 0)
+  csa_3to2_sew64.io.in_b := vector(127, 64)
+  csa_3to2_sew64.io.in_c := scalar
+  sum_sew64 := csa_3to2_sew64.io.out_sum
+  carry_sew64 := csa_3to2_sew64.io.out_car
+  // stage 2
+  vd_sew64 := vd_reg(127, 64) + vd_reg(63, 0)
+
+  // sew32 (widen) sum
+  val sum_sew32 = Wire(Vec(2, UInt(64.W)))
+  val carry_sew32 = Wire(Vec(2, UInt(64.W)))
+  val sum_add_sew32 = Wire(UInt(64.W))
+  val vd_sew32 = Wire(UInt(64.W))
+  // stage 1
+  val csa_3to2_sew32_0 = Module(new CSA3to2(width = 64))
+  csa_3to2_sew32_0.io.in_a := Cat(Fill(32, vector(31) & signed), vector(31, 0))
+  csa_3to2_sew32_0.io.in_b := Cat(Fill(32, vector(63) & signed), vector(63, 32))
+  csa_3to2_sew32_0.io.in_c := Cat(Fill(32, vector(95) & signed), vector(95, 64))
+  sum_sew32(0) := csa_3to2_sew32_0.io.out_sum
+  carry_sew32(0) := csa_3to2_sew32_0.io.out_car
+  sum_add_sew32 := Cat(Fill(32, vector(127) & signed), vector(127, 96)) + scalar(63, 0)
+
+  val csa_3to2_sew32_1 = Module(new CSA3to2(width = 64))
+  csa_3to2_sew32_1.io.in_a := sum_sew32(0)
+  csa_3to2_sew32_1.io.in_b := carry_sew32(0)
+  csa_3to2_sew32_1.io.in_c := sum_add_sew32
+  sum_sew32(1) := csa_3to2_sew32_1.io.out_sum
+  carry_sew32(1) := csa_3to2_sew32_1.io.out_car
+  // stage 2
+  vd_sew32 := vd_reg(127, 64) + vd_reg(63, 0)
+
+  // sew16 (widen) sum
+  val sum0_sew16 = Wire(Vec(3, UInt(32.W)))
+  val carry0_sew16 = Wire(Vec(3, UInt(32.W)))
+  val sum1_sew16 = Wire(Vec(2, UInt(32.W)))
+  val carry1_sew16 = Wire(Vec(2, UInt(32.W)))
+  val sum2_sew16 = Wire(UInt(32.W))
+  val carry2_sew16 = Wire(UInt(32.W))
+  val vd_sew16 = Wire(UInt(32.W))
+
+  val in0_sew16_vec = Wire(Vec(9, UInt(32.W)))
+  val in0_sew16 = Cat(in0_sew16_vec.reverse)
+  val in1_sew16 = Cat(Cat(sum0_sew16.reverse), Cat(carry0_sew16.reverse))
+  val in2_sew16 = Cat(Cat(sum1_sew16.reverse), Cat(carry1_sew16.reverse))
+
+  // stage 1
+  for (i <- 0 until 8) {
+    in0_sew16_vec(i) := Cat(Fill(16, vector(16*(i+1)-1) & signed), vector(16*(i+1)-1, 16*i))
+  }
+  in0_sew16_vec(8) := scalar(31, 0)
+  
+  for (i <- 0 until 3) {
+    val csa_3to2_sew16 = Module(new CSA3to2(width = 32))
+    csa_3to2_sew16.io.in_a := in0_sew16(96 * i + 31, 96 * i + 0)
+    csa_3to2_sew16.io.in_b := in0_sew16(96 * i + 63, 96 * i + 32)
+    csa_3to2_sew16.io.in_c := in0_sew16(96 * i + 95, 96 * i + 64)
+    sum0_sew16(i) := csa_3to2_sew16.io.out_sum
+    carry0_sew16(i) := csa_3to2_sew16.io.out_car
+  }
+
+  for (i <- 0 until 2) {
+    val csa_3to2_sew16 = Module(new CSA3to2(width = 32))
+    csa_3to2_sew16.io.in_a := in1_sew16(96 * i + 31, 96 * i + 0)
+    csa_3to2_sew16.io.in_b := in1_sew16(96 * i + 63, 96 * i + 32)
+    csa_3to2_sew16.io.in_c := in1_sew16(96 * i + 95, 96 * i + 64)
+    sum1_sew16(i) := csa_3to2_sew16.io.out_sum
+    carry1_sew16(i) := csa_3to2_sew16.io.out_car
+  }
+
+  val csa_4to2_sew16 = Module(new CSA4to2(width = 32))
+  csa_4to2_sew16.io.in_a := in2_sew16(31, 0)
+  csa_4to2_sew16.io.in_b := in2_sew16(63, 32)
+  csa_4to2_sew16.io.in_c := in2_sew16(95, 64)
+  csa_4to2_sew16.io.in_d := in2_sew16(127, 96)
+  sum2_sew16 := csa_4to2_sew16.io.out_sum
+  carry2_sew16 := csa_4to2_sew16.io.out_car
+  // stage 2
+  vd_sew16 := vd_reg(63, 32) + vd_reg(31, 0)
+
+  // sew8 (widen) sum
+  val sum0_sew8 = Wire(Vec(4, UInt(16.W)))
+  val carry0_sew8 = Wire(Vec(4, UInt(16.W)))
+  val sum1_sew8 = Wire(Vec(3, UInt(16.W)))
+  val carry1_sew8 = Wire(Vec(3, UInt(16.W)))
+  val sum2_sew8 = Wire(Vec(2, UInt(16.W)))
+  val carry2_sew8 = Wire(Vec(2, UInt(16.W)))
+  val sum3_sew8 = Wire(UInt(16.W))
+  val carry3_sew8 = Wire(UInt(16.W))
+  val vd_sew8 = Wire(UInt(16.W))
+
+  val in0_sew8_vec = Wire(Vec(16, UInt(16.W)))
+  val in0_sew8 = Cat(in0_sew8_vec.reverse)
+  val in1_sew8 = Cat(scalar(15, 0), Cat(sum0_sew8.reverse), Cat(carry0_sew8.reverse))
+  val in2_sew8 = Cat(Cat(sum1_sew8.reverse), Cat(carry1_sew8.reverse))
+  val in3_sew8 = Cat(Cat(sum2_sew8.reverse), Cat(carry2_sew8.reverse))
+  // stage 1
+  for (i <- 0 until 16) {
+    in0_sew8_vec(i) := Cat(Fill(8, vector(8*(i+1)-1) & signed), vector(8*(i+1)-1, 8*i))
+  }
+
+  for (i <- 0 until 4) {
+    val csa_4to2_sew8 = Module(new CSA4to2(width = 16))
+    csa_4to2_sew8.io.in_a := in0_sew8(64 * i + 15, 64 * i + 0)
+    csa_4to2_sew8.io.in_b := in0_sew8(64 * i + 31, 64 * i + 16)
+    csa_4to2_sew8.io.in_c := in0_sew8(64 * i + 47, 64 * i + 32)
+    csa_4to2_sew8.io.in_d := in0_sew8(64 * i + 63, 64 * i + 48)
+    sum0_sew8(i) := csa_4to2_sew8.io.out_sum
+    carry0_sew8(i) := csa_4to2_sew8.io.out_car
+  }
+
+  for (i <- 0 until 3) {
+    val csa_3to2_sew8 = Module(new CSA3to2(width = 16))
+    csa_3to2_sew8.io.in_a := in1_sew8(48 * i + 15, 48 * i + 0)
+    csa_3to2_sew8.io.in_b := in1_sew8(48 * i + 31, 48 * i + 16)
+    csa_3to2_sew8.io.in_c := in1_sew8(48 * i + 47, 48 * i + 32)
+    sum1_sew8(i) := csa_3to2_sew8.io.out_sum
+    carry1_sew8(i) := csa_3to2_sew8.io.out_car
+  }
+
+  for (i <- 0 until 2) {
+    val csa_3to2_sew8 = Module(new CSA3to2(width = 16))
+    csa_3to2_sew8.io.in_a := in2_sew8(48 * i + 15, 48 * i + 0)
+    csa_3to2_sew8.io.in_b := in2_sew8(48 * i + 31, 48 * i + 16)
+    csa_3to2_sew8.io.in_c := in2_sew8(48 * i + 47, 48 * i + 32)
+    sum2_sew8(i) := csa_3to2_sew8.io.out_sum
+    carry2_sew8(i) := csa_3to2_sew8.io.out_car
+  }
+
+  val csa_4to2_sew8 = Module(new CSA4to2(width = 16))
+  csa_4to2_sew8.io.in_a := in3_sew8(15, 0)
+  csa_4to2_sew8.io.in_b := in3_sew8(31, 16)
+  csa_4to2_sew8.io.in_c := in3_sew8(47, 32)
+  csa_4to2_sew8.io.in_d := in3_sew8(63, 48)
+  sum3_sew8 := csa_4to2_sew8.io.out_sum
+  carry3_sew8 := csa_4to2_sew8.io.out_car
+  // stage 2
+  vd_sew8 := vd_reg(31, 16) + vd_reg(15, 0)
+
+  when(vd_vsew_reg_s1 === 0.U) {
+    vd_reg := Cat(sum3_sew8, carry3_sew8)
+  }.elsewhen(vd_vsew_reg_s1 === 1.U) {
+    vd_reg := Cat(sum2_sew16, carry2_sew16)
+  }.elsewhen(vd_vsew_reg_s1 === 2.U) {
+    vd_reg := Cat(sum_sew32(1), carry_sew32(1))
+  }.elsewhen(vd_vsew_reg_s1 === 3.U) {
+    vd_reg := Cat(sum_sew64, carry_sew64)
+  }
+
+  val vd_vsew_reg = RegNext(io.vsew)
+  val sum_vd = Wire(UInt(64.W))
+  sum_vd := vd_sew64
+  when(vd_vsew_reg === 0.U) {
+    sum_vd := Mux(widen_s2_r, vd_sew8, vd_sew8(7,0))
+  }.elsewhen(vd_vsew_reg === 1.U) {
+    sum_vd := Mux(widen_s2_r, vd_sew16, vd_sew16(15,0))
+  }.elsewhen(vd_vsew_reg === 2.U) {
+    sum_vd := Mux(widen_s2_r, vd_sew32, vd_sew32(31,0))
+  }
+  io.vout := sum_vd
 }
+
+
 
 object VerilogNewRed extends App {
   println("Generating the VPU Reduction hardware")

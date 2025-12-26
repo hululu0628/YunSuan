@@ -709,16 +709,11 @@ class compare_2to1(w: Int) extends Module {
   })
 
   // a-b
-  val b_inv = ~io.b
-  val cout = Wire(Bool())
+  val fs_a = Cat(io.signed ^ io.a(w-1), io.a(w-2, 0))
+  val fs_b = Cat(io.signed ^ io.b(w-1), io.b(w-2, 0))
   val less = Wire(Bool())
 
-  val adder_xb = Module(new Adder_xb(w = w))
-  adder_xb.io.in1 := b_inv
-  adder_xb.io.in2 := io.a
-  adder_xb.io.cin := 1.U
-  cout := adder_xb.io.cout
-  less := Mux(io.signed, io.a(w - 1) ^ b_inv(w - 1) ^ cout, !cout)
+  less := fs_a < fs_b
   io.c := Mux(less === io.max, io.b, io.a)
 }
 
@@ -733,20 +728,14 @@ class compare_3to1(w: Int) extends Module {
   })
 
   // a-b, a-c, b-c
-  val vs_hi = Cat(io.a, io.a, io.b)
-  val vs_lo = Cat(io.b, io.c, io.c)
-  val vs_lo_inv = ~vs_lo
-  val cout = Wire(Vec(3, Bool()))
+  val fs_a = Cat(io.signed ^ io.a(w-1), io.a(w-2, 0))
+  val fs_b = Cat(io.signed ^ io.b(w-1), io.b(w-2, 0))
+  val fs_c = Cat(io.signed ^ io.c(w-1), io.c(w-2, 0))
   val less = Wire(Vec(3, Bool()))
 
-  for (i <- 0 until 3) {
-    val adder_xb = Module(new Adder_xb(w = w))
-    adder_xb.io.in1 := vs_lo_inv(w * (i + 1) - 1, w * i)
-    adder_xb.io.in2 := vs_hi(w * (i + 1) - 1, w * i)
-    adder_xb.io.cin := 1.U
-    cout(i) := adder_xb.io.cout
-    less(i) := Mux(io.signed, vs_hi(w * (i + 1) - 1) ^ vs_lo_inv(w * (i + 1) - 1) ^ cout(i), !cout(i))
-  }
+  less(2) := fs_a < fs_b
+  less(1) := fs_a < fs_c
+  less(0) := fs_b < fs_c
 
   io.d := 0.U
   when((less(2) && less(1) && !io.max) || (!less(2) && !less(1) && io.max)) {
