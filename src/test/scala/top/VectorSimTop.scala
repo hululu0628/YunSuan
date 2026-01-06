@@ -10,6 +10,7 @@ import yunsuan.vector._
 import yunsuan.vector.alu._
 import yunsuan.scalar.INT2FP
 import yunsuan.scalar.FPCVT
+import yunsuan.fpu.falu._
 
 trait VSPParameter {
   val VLEN       : Int = 128

@@ -165,7 +165,7 @@ class FALUS0V2(val totalWidth: Int) extends Module with FloatParams{
 
   val fracASubB = fracA +& (~fracB).asUInt + 1.U
   val fracAGE = fracASubB.head(1).asBool
-  val AGEB = expAEB && fracAGE || !expAEB && expAGE
+  val AGEB = expAEB && fracAGE || !expAEB && expAGE // using expAG1 is enough
   val lza = Mux(AGEB, lzaAGE, lzaBGE)
 
   // expClose is expG - lza
