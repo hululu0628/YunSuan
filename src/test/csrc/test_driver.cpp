@@ -125,6 +125,11 @@ uint8_t TestDriver::gen_random_optype() {
       return vred_all_optype[rand() % VRED_NUM];
       break;
     }
+    case VFReduction:{
+      uint8_t vfred_all_optype[VFRED_NUM] = VFRED_ALL_OPTYPES;
+      return vfred_all_optype[rand() % VFRED_NUM];
+      break;
+    }
     default:
       printf("Unsupported FuType %d\n", input.fuType);
       exit(1);
@@ -165,6 +170,9 @@ bool TestDriver::gen_random_widen() {
     }
   }
   if(input.sew < 3 && input.fuType == VReduction && input.fuOpType == VREDSUM) {
+    return rand()%2 == 1;
+  }
+  if(input.sew < 3 && input.fuType == VFReduction && (input.fuOpType == VFREDUSUM || input.fuOpType == VFREDOSUM)) {
     return rand()%2 == 1;
   }
   return false;
@@ -228,6 +236,15 @@ void TestDriver::gen_random_vecinfo() {
     case VReduction: {
       input.vinfo.vlmul = 0;
       break;
+    }
+    case VFReduction: {
+      if(input.fuOpType != VFREDOSUM) {
+        input.vinfo.vlmul = 0;
+        break;
+      } else {
+        input.vinfo.vlmul = vlmul_list[rand() % (7 - input.sew)]; //useless
+        break;
+      }
     }
     default:
       input.vinfo.vlmul = vlmul_list[rand() % (7 - input.sew)];
@@ -488,7 +505,10 @@ void TestDriver::get_expected_output() {
       expect_output = scvt.get_expected_output(input); return; 
     case VReduction:
       if (verbose) { printf("FuType:%d, choose VReduction %d\n", input.fuType, VReduction); }
-      expect_output = vired.get_expected_output(input); return; 
+      expect_output = vired.get_expected_output(input); return;
+    case VFReduction:
+      if (verbose) {printf("FuType:%d, choose VFReduction %d\n", input.fuType, VFReduction); }
+      expect_output = vfred.get_expected_output(input); return;
     default:
       printf("Unsupported FuType %d\n", input.fuType);
       exit(1);

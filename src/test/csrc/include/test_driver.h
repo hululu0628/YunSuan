@@ -45,6 +45,7 @@ private:
   VGMFloatCvt vcvt;
   SGMFloatCvt scvt;
   VGMReduction vired;
+  VGMFReduction vfred;
 
 public:
   TestDriver();

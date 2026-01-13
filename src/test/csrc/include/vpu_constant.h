@@ -24,8 +24,9 @@ extern "C"{
 #define FloatCvtF2X (8) //f->i/ui/f
 #define FloatCvtI2F (9) //i/ui->f
 #define VReduction (10)
+#define VFReduction (11)
 
-#define ALL_FUTYPES {VFloatFMA,VFloatDivider,VIntegerALU,VPermutation,VIntegerDivider,VFloatCvt,FloatCvtF2X,FloatCvtI2F, VReduction}
+#define ALL_FUTYPES {VFloatFMA,VFloatDivider,VIntegerALU,VPermutation,VIntegerDivider,VFloatCvt,FloatCvtF2X,FloatCvtI2F,VReduction,VFReduction}
 
 #define INT_ROUNDING(result, xrm, gb) \
   do { \
@@ -194,6 +195,15 @@ extern "C"{
 
 #define VRED_ALL_OPTYPES {VREDSUM,VREDMAX,VREDMIN,VREDAND,VREDOR,VREDXOR}
 
+// vfred funop type
+// only test uopidx = 0, vstart = 0 in this version
+#define VFRED_NUM 4
+#define VFREDUSUM (binstoi("0000"))
+#define VFREDOSUM (binstoi("0001"))
+#define VFREDMIN  (binstoi("0010"))
+#define VFREDMAX  (binstoi("0011"))
+
+#define VFRED_ALL_OPTYPES {VFREDUSUM,VFREDOSUM,VFREDMIN,VFREDMAX}
 
 // rounding mode for fix point
 #define RM_S_RNU (0)

@@ -167,4 +167,18 @@ class VGMReduction : public VPUGoldenModel {
     VecOutput get_output_vredxor(VecInput input);
 };
 
+class VGMFReduction : public VGMFloatBase {
+  public:
+    VecOutput get_expected_output(VecInput input);
+    virtual ElementOutput calculation_e16(ElementInput input);
+    virtual ElementOutput calculation_e32(ElementInput input);
+    virtual ElementOutput calculation_e64(ElementInput input);
+  private:
+    VecOutput get_output_vfred(VecInput input);
+    VecOutput get_output_vfredusum(VecInput input);
+    VecOutput get_output_vfredosum(VecInput input);
+    VecOutput get_output_vfredmin(VecInput input);
+    VecOutput get_output_vfredmax(VecInput input);
+};
+
 #endif
