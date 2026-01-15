@@ -219,7 +219,7 @@ VecOutput VGMReduction::get_output_vredmin(VecInput input) {
     __uint32_t mask_selected = activeMask >> mask_start_idx;
 
     if(widen && sew == 3) {
-        printf("VRED Modle, bad widen sew %d\n", input.sew);
+        printf("VRED Module, bad widen sew %d\n", input.sew);
         exit(1);
     }
 
