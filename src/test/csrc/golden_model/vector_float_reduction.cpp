@@ -16,7 +16,7 @@ VecOutput VGMFReduction::get_output_vfred(VecInput input) {
     default: printf("VFRED: bad fuOpType %d\n", input.fuOpType); exit(1);
   }
 }
-// TODO: check rv manaul, when vs2 all masked and scalar is sNaN
+
 VecOutput VGMFReduction::get_output_vfredosum(VecInput input) {
 	// regardless of lmul > 1
 	int widen = input.widen;

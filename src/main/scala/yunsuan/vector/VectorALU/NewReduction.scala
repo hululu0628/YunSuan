@@ -16,7 +16,7 @@ trait ReductionParam {
 // 1. set final outputs properly
 // 2. move vs1 initialization to top module instead of submodules
 // 3. modify name of input port
-// 4. modify VREDCOMP
+// FIXME: considering vstart
 class NewReduction extends Module with ReductionParam {
   val io = IO(new Bundle {
     val in = Flipped(ValidIO(new VIFuInput))

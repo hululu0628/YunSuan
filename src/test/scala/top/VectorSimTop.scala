@@ -432,6 +432,6 @@ class SimTop() extends VPUTestModule {
 
 object SimTop extends App {
   (new ChiselStage).execute(args, Seq(
-    ChiselGeneratorAnnotation(() => new SimTop()), FirtoolOption("--lowering-options=explicitBitcast")
+    ChiselGeneratorAnnotation(() => new VFRedComp()), FirtoolOption("--lowering-options=explicitBitcast")
   ))
 }
